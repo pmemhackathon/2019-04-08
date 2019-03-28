@@ -120,19 +120,6 @@ using pmem::obj::transaction;
 template <typename Key, typename Value, std::size_t N,
 	  typename HashFunc = hash<Key>>
 class kv {
-private:
-	struct slot;
-	struct entry;
-
-	static const int nretries = 5;
-	static const int nhash = 2;
-
-	ptl::array<slot, N> slots[nhash];
-	ptl::vector<entry> entries;
-
-public:
-	using value_type = entry;
-
 	kv() = default;
 
 	Value &
@@ -150,83 +137,6 @@ public:
 
 		throw std::runtime_error("not implemented");
 	}
-
-	auto
-	begin() -> decltype(entries.begin())
-	{
-		return entries.begin();
-	}
-
-	auto
-	end() -> decltype(entries.end())
-	{
-		return entries.end();
-	}
-
-	auto
-	begin() const -> decltype(entries.cbegin())
-	{
-		return entries.cbegin();
-	}
-
-	auto
-	end() const -> decltype(entries.cend())
-	{
-		return entries.cend();
-	}
-
-	auto
-	cbegin() const -> decltype(entries.cbegin())
-	{
-		return entries.cbegin();
-	}
-
-	auto
-	cend() const -> decltype(entries.cend())
-	{
-		return entries.cend();
-	}
-
-private:
-	size_t
-	key_hash(const Key &k, int n) const
-	{
-		return HashFunc{}(k, n) & (N - 1);
-	}
-
-	pool_base
-	get_pool() const noexcept
-	{
-		auto pop = pmemobj_pool_by_ptr(this);
-		assert(pop != nullptr);
-		return pool_base(pop);
-	}
-
-	struct entry {
-		entry(const Key &k = 0, const Value &v = Value{})
-		    : key(k), value(v)
-		{
-		}
-
-		Key key;
-		Value value;
-	};
-
-	struct slot {
-		slot() : occupied(false), index(0)
-		{
-		}
-
-		void
-		set(std::size_t index)
-		{
-			this->index = index;
-			occupied = true;
-		}
-
-		bool occupied;
-		std::size_t index;
-	};
 };
 
 } /* namespace examples */

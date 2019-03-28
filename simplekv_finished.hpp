@@ -110,8 +110,12 @@ using pmem::obj::pool_base;
 using pmem::obj::transaction;
 
 /**
- * HashFunc should implement operator(const Key& k, int n)
- * which calculates hash function based on key and some integer.
+ * Key - type of the key
+ * Value - type of the value stored in hashmap
+ * N - Size of hashmap
+ * HashFunc - function object which implements a hash function - it should
+ * 	implement operator()(const Key& k, int n) which calculates hash function
+ * 	based on key and some integer.
  */
 template <typename Key, typename Value, std::size_t N,
 	  typename HashFunc = hash<Key>>

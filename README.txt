@@ -119,3 +119,14 @@ valgrind --tool=pmemcheck ./simplekv-simple /mnt/pmem-fsdax/simplekv-simple get 
 pmempool create obj --layout=simplekv -s 100M /mnt/pmem-fsdax/simplekv-words
 pmempool info /mnt/pmem-fsdax/simplekv-words
 ./simplekv-word-count /mnt/pmem-fsdax/simplekv-words words1.txt words2.txt
+
+#
+# find_bugs.cpp
+#
+# Program which contains few bugs. Can you find them?
+#
+pmempool create obj --layout=find_bugs -s 100M /mnt/pmem-fsdax/find_bugs
+./find-bugs /mnt/pmem-fsdax/find_bugs
+
+# run find-bugs under pmemcheck
+valgrind --tool=pmemcheck ./find-bugs /mnt/pmem-fsdax/find_bugs
