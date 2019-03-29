@@ -85,6 +85,7 @@ main(int argc, char *argv[])
 	if (r->ptr == nullptr) {
 		pmem::obj::transaction::run(pop, [&] {
 			r->ptr = pmem::obj::make_persistent<data>();
+			r->ptr2 = pmem::obj::make_persistent<data>();
 		});
 	}
 
@@ -121,10 +122,6 @@ main(int argc, char *argv[])
 
 	/**********************************************************************/
 	/*******************************  BUG 5  ******************************/
-
-	pmem::obj::transaction::run(pop, [&]{
-		r->ptr2 = pmem::obj::make_persistent<data>();
-	});
 
 	r->ptr2->pmem_property = r->ptr->pmem_property;
 	pop.persist(r->ptr2->pmem_property);
