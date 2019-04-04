@@ -38,7 +38,7 @@
  *	pmempool create obj --layout=simplekv -s 1G word_count
  */
 
-#include "simplekv.hpp"
+#include "simplekv_optimized.hpp"
 
 #include <algorithm>
 #include <fstream>
@@ -99,8 +99,8 @@ map(const simplekv_type::value_type &vec)
 {
 	word_count_kv map;
 
-	for (const auto &e : vec.value) {
-		map[std::string(e.begin(), e.end())]++;
+	for (const auto &e : vec) {
+		map[std::string(e.c_str())]++;
 	}
 
 	return map;

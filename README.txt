@@ -94,21 +94,44 @@ cd 2019-04-08
 make
 
 #
+# queue.cpp
+#
+# Simple implementation of a volatile queue.
+#
+./queue
+push 1
+push 2
+push 3
+pop
+show
+
+#
+# queue_pmemobj.cpp
+#
+# Simple implementation of a persistent queue.
+#
+# pmempool create obj may fail since the SDS feature see:
+# https://github.com/pmem/issues/issues/1039
+# when you create the pool by the pmempool create, you may need use the command:
+# PMEMOBJ_CONF="sds.at_create=0" pmempool create obj --layout=queue -s 100M /mnt/pmem-fsdax/queue
+#
+pmempool create obj --layout=queue -s 100M /mnt/pmem-fsdax/queue
+pmempool info /mnt/pmem-fsdax/queue
+./queue_pmemobj /mnt/pmem-fsdax/queue
+push 1
+push 2
+push 3
+pop
+show
+
+#
 # simplekv_simple.cpp
 #
-# Simple C++ program which allows inserting, querying and printing a hashmap
-# which maps uint64_t to uint64_t (implementation of which can be found in
-# simplekv.hpp).
+# Hashmap test program.
 #
 pmempool create obj --layout=simplekv -s 100M /mnt/pmem-fsdax/simplekv-simple
 pmempool info /mnt/pmem-fsdax/simplekv-simple
-./simplekv-simple /mnt/pmem-fsdax/simplekv-simple insert 0 1
-./simplekv-simple /mnt/pmem-fsdax/simplekv-simple insert 10 2
-./simplekv-simple /mnt/pmem-fsdax/simplekv-simple insert 100 3
-./simplekv-simple /mnt/pmem-fsdax/simplekv-simple print
-
-# run simplekv-simple under pmemcheck
-valgrind --tool=pmemcheck ./simplekv-simple /mnt/pmem-fsdax/simplekv-simple get 0
+./simplekv_simple /mnt/pmem-fsdax/simplekv-simple
 
 #
 # simplekv_word_count.cpp
@@ -118,7 +141,7 @@ valgrind --tool=pmemcheck ./simplekv-simple /mnt/pmem-fsdax/simplekv-simple get 
 #
 pmempool create obj --layout=simplekv -s 100M /mnt/pmem-fsdax/simplekv-words
 pmempool info /mnt/pmem-fsdax/simplekv-words
-./simplekv-word-count /mnt/pmem-fsdax/simplekv-words words1.txt words2.txt
+./simplekv_word_count /mnt/pmem-fsdax/simplekv-words words1.txt words2.txt
 
 #
 # find_bugs.cpp
@@ -126,7 +149,7 @@ pmempool info /mnt/pmem-fsdax/simplekv-words
 # Program which contains few bugs. Can you find them?
 #
 pmempool create obj --layout=find_bugs -s 100M /mnt/pmem-fsdax/find_bugs
-./find-bugs /mnt/pmem-fsdax/find_bugs
+./find_bugs /mnt/pmem-fsdax/find_bugs
 
 # run find-bugs under pmemcheck
-valgrind --tool=pmemcheck ./find-bugs /mnt/pmem-fsdax/find_bugs
+valgrind --tool=pmemcheck ./find_bugs /mnt/pmem-fsdax/find_bugs
