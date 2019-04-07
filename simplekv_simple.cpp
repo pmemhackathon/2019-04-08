@@ -81,14 +81,14 @@ main(int argc, char *argv[])
 	});
 
 	r->simplekv->insert(1, 1);
-    r->simplekv->insert(2, 3);
-    r->simplekv->insert(3, 4);
-    r->simplekv->insert(11, 11);
+	r->simplekv->insert(2, 3);
+	r->simplekv->insert(3, 4);
+	r->simplekv->insert(11, 11);
 
-    assert(r->simplekv->at(1) == 1);
-    assert(r->simplekv->at(2) == 3);
-    assert(r->simplekv->at(3) == 4);
-    assert(r->simplekv->at(11) == 11);
+	assert(r->simplekv->at(1) == 1);
+	assert(r->simplekv->at(2) == 3);
+	assert(r->simplekv->at(3) == 4);
+	assert(r->simplekv->at(11) == 11);
 
 	pop.close();
 

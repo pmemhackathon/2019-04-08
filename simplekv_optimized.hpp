@@ -76,10 +76,10 @@ template <typename Key, typename Value, std::size_t N>
 class kv {
 private:
 	using bucket_type = ptl::vector<std::pair<Key, std::size_t>>;
-    using table_type = ptl::array<bucket_type, N>;
+	using table_type = ptl::array<bucket_type, N>;
 
-    table_type table;
-    ptl::vector<Value> values;
+	table_type table;
+	ptl::vector<Value> values;
 
 public:
 	using value_type = Value;
