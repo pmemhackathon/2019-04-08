@@ -30,12 +30,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <bitset>
-#include <iostream>
 #include <libpmemobj++/experimental/array.hpp>
 #include <libpmemobj++/experimental/string.hpp>
-#include <libpmemobj++/make_persistent.hpp>
-#include <libpmemobj++/mutex.hpp>
 #include <libpmemobj++/p.hpp>
 #include <libpmemobj++/persistent_ptr.hpp>
 #include <libpmemobj++/pext.hpp>
@@ -44,65 +40,27 @@
 #include <stdexcept>
 #include <string>
 
+namespace std
+{
+template <>
+struct hash<pmem::obj::experimental::string> {
+	std::size_t
+	operator()(const pmem::obj::experimental::string &data)
+	{
+		std::string str(data.cbegin(), data.cend());
+		return std::hash<std::string>{}(str);
+	}
+};
+}
+
 namespace examples
 {
 
 namespace ptl = pmem::obj::experimental;
 
-template <typename T>
-struct hash;
-
-template <>
-struct hash<ptl::string> {
-	std::size_t
-	operator()(const ptl::string &data, int n)
-	{
-		assert(n <= 1);
-
-		static constexpr std::size_t params[] = {
-			0xff51afd7ed558ccd,
-			0xc4ceb9fe1a85ec53,
-			0x5fcdfd7ed551af8c,
-			0xec53ba85e9fe1c4c,
-		};
-		std::string str(data.cbegin(), data.cend());
-		std::size_t key = std::hash<std::string>{}(str);
-		key ^= key >> 33;
-		key *= params[n * 2];
-		key ^= key >> 33;
-		key *= params[(n * 2) + 1];
-		key ^= key >> 33;
-		return key;
-	}
-};
-
-template <>
-struct hash<uint64_t> {
-	std::size_t
-	operator()(const uint64_t &data, int n)
-	{
-		assert(n <= 1);
-
-		static constexpr std::size_t params[] = {
-			0xff51afd7ed558ccd,
-			0xc4ceb9fe1a85ec53,
-			0x5fcdfd7ed551af8c,
-			0xec53ba85e9fe1c4c,
-		};
-
-		std::size_t key = data;
-		key ^= data >> 33;
-		key *= params[n * 2];
-		key ^= key >> 33;
-		key *= params[(n * 2) + 1];
-		key ^= key >> 33;
-		return key;
-	}
-};
-
 using pmem::obj::delete_persistent;
 using pmem::obj::make_persistent;
-using pmem::obj::mutex;
+
 using pmem::obj::p;
 using pmem::obj::persistent_ptr;
 using pmem::obj::pool;
@@ -113,29 +71,52 @@ using pmem::obj::transaction;
  * Key - type of the key
  * Value - type of the value stored in hashmap
  * N - Size of hashmap
- * HashFunc - function object which implements a hash function - it should
- * 	implement operator()(const Key& k, int n) which calculates hash function
- * 	based on key and some integer.
  */
-template <typename Key, typename Value, std::size_t N,
-	  typename HashFunc = hash<Key>>
+template <typename Key, typename Value, std::size_t N>
 class kv {
+private:
+	using bucket_type = ptl::vector<std::pair<Key, std::size_t>>;
+	using table_type = ptl::array<bucket_type, N>;
+
+	table_type table;
+	ptl::vector<Value> values;
+
+public:
+	using value_type = Value;
+
 	kv() = default;
 
 	Value &
-	at(const Key &k)
+	at(const Key &key)
 	{
-		/* TODO */
+		auto index = std::hash<Key>{}(key) % N;
 
-		throw std::runtime_error("not implemented");
+        for (const auto &e : table[index])
+        {
+            if (e.first == key)
+                return values[e.second];
+        }
+
+		throw std::out_of_range("no entry in simplekv");
 	}
 
 	void
 	insert(const Key &key, const Value &val)
 	{
-		/* TODO */
+        auto index = std::hash<Key>{}(key) % N;
 
-		throw std::runtime_error("not implemented");
+        values.emplace_back(val);
+		table[index].emplace_back(key, values.size() - 1);
+	}
+
+	auto begin() -> decltype(values.begin())
+	{
+		return values.begin();
+	}
+
+	auto end() -> decltype(values.end())
+	{
+		return values.end();
 	}
 };
 

@@ -30,67 +30,81 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-/*
- * simplekv_word_count.cpp -- implementation of a map-reduce algorithm
- * for counting words in text files.
- *
- * create the pool for this program using pmempool, for example:
- *	pmempool create obj --layout=simplekv -s 1G word_count
- */
+#include <libpmemobj++/experimental/array.hpp>
+#include <libpmemobj++/experimental/string.hpp>
+#include <libpmemobj++/p.hpp>
+#include <libpmemobj++/persistent_ptr.hpp>
+#include <libpmemobj++/pext.hpp>
+#include <libpmemobj++/pool.hpp>
+#include <libpmemobj++/transaction.hpp>
+#include <stdexcept>
+#include <string>
 
-#include "simplekv.hpp"
+namespace std
+{
+template <>
+struct hash<pmem::obj::experimental::string> {
+	std::size_t
+	operator()(const pmem::obj::experimental::string &data)
+	{
+		std::string str(data.cbegin(), data.cend());
+		return std::hash<std::string>{}(str);
+	}
+};
+}
 
-static const std::string LAYOUT = "simplekv";
+namespace examples
+{
+
+namespace ptl = pmem::obj::experimental;
 
 using pmem::obj::delete_persistent;
 using pmem::obj::make_persistent;
 using pmem::obj::p;
 using pmem::obj::persistent_ptr;
 using pmem::obj::pool;
+using pmem::obj::pool_base;
 using pmem::obj::transaction;
 
-namespace ptl = pmem::obj::experimental;
+/**
+ * Key - type of the key
+ * Value - type of the value stored in hashmap
+ * N - Size of hashmap
+ */
+template <typename Key, typename Value, std::size_t N>
+class kv {
+private:
+	using bucket_type = ptl::vector<std::pair<Key, Value>>;
+	using table_type = ptl::array<bucket_type, N>;
 
-using simplekv_type = examples::kv<int, int, 10>;
+	table_type table;
 
-struct root {
-	persistent_ptr<simplekv_type> simplekv;
-};
+public:
+	using value_type = Value;
 
-int
-main(int argc, char *argv[])
-{
-	if (argc < 2) {
-		std::cerr << "usage: " << argv[0] << " file-name" << std::endl;
-		return 1;
+	kv() = default;
+
+	Value &
+	at(const Key &key)
+	{
+		auto index = std::hash<Key>{}(key) % N;
+
+        for (auto &e : table[index])
+        {
+            if (e.first == key)
+                return e.second;
+        }
+
+		throw std::out_of_range("no entry in simplekv");
 	}
 
-	auto path = argv[1];
+	void
+	insert(const Key &key, const Value &val)
+	{
+        auto index = std::hash<Key>{}(key) % N;
 
-	auto pop = pool<root>::open(path, LAYOUT);
-	auto r = pop.root();
+		table[index].emplace_back(key, val);
+	}
+};
 
-	if (r->simplekv != nullptr) {
-        transaction::run(pop, [&]() {
-            delete_persistent<simplekv_type>(r->simplekv);
-        });
-    }
-
-	transaction::run(pop, [&]() {
-		r->simplekv = make_persistent<simplekv_type>();
-	});
-
-	r->simplekv->insert(1, 1);
-	r->simplekv->insert(2, 3);
-	r->simplekv->insert(3, 4);
-	r->simplekv->insert(11, 11);
-
-	assert(r->simplekv->at(1) == 1);
-	assert(r->simplekv->at(2) == 3);
-	assert(r->simplekv->at(3) == 4);
-	assert(r->simplekv->at(11) == 11);
-
-	pop.close();
-
-	return 0;
-}
+} /* namespace examples */
