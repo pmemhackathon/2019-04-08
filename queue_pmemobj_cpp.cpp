@@ -31,7 +31,7 @@
  */
 
 /*
- * queue_pmemobj.cpp -- implementation of a persistent queue.
+ * queue_pmemobj_cpp.cpp -- implementation of a persistent queue.
  *
  * create the pool for this program using pmempool, for example:
  *	pmempool create obj --layout=queue -s 1G queue_pool
@@ -42,12 +42,11 @@
 #include <iostream>
 #include <string>
 
-#include <libpmemobj.h>
-
-POBJ_LAYOUT_BEGIN(queue);
-POBJ_LAYOUT_TOID(queue, struct queue);
-POBJ_LAYOUT_TOID(queue, struct queue_node);
-POBJ_LAYOUT_END(queue);
+#include <libpmemobj++/make_persistent.hpp>
+#include <libpmemobj++/p.hpp>
+#include <libpmemobj++/persistent_ptr.hpp>
+#include <libpmemobj++/pool.hpp>
+#include <libpmemobj++/transaction.hpp>
 
 enum queue_op {
 	PUSH,
@@ -57,53 +56,45 @@ enum queue_op {
 };
 
 struct queue_node {
-	int value;
-	TOID(struct queue_node) next;
+	pmem::obj::p<int> value;
+	pmem::obj::persistent_ptr<queue_node> next;
 };
 
 struct queue {
 	void
-	push(PMEMobjpool *pop, int value)
+	push(pmem::obj::pool_base &pop, int value)
 	{
-		TX_BEGIN(pop) {
-			TOID(struct queue_node) node = TX_ALLOC(struct queue_node,
-                                                    sizeof(struct queue_node));
-			D_RW(node)->value = value;
-			D_RW(node)->next = TOID_NULL(struct queue_node);
+		pmem::obj::transaction::run(pop, [&] {
+			auto node = pmem::obj::make_persistent<queue_node>();
+			node->value = value;
+			node->next = nullptr;
 
-			if (TOID_IS_NULL(head)) {
-				TX_ADD_DIRECT(this);
+			if (head == nullptr) {
 				head = tail = node;
 			} else {
-				TX_ADD(tail);
-				D_RW(tail)->next = node;
-
-				TX_ADD_DIRECT(&tail);
+				tail->next = node;
 				tail = node;
 			}
-		} TX_END;
+		});
 	}
 
 	int
-	pop(PMEMobjpool* pop)
+	pop(pmem::obj::pool_base &pop)
 	{
 		int value;
-		TX_BEGIN(pop) {
-			if (TOID_IS_NULL(head))
-				pmemobj_tx_abort(-1);
+		pmem::obj::transaction::run(pop, [&] {
+			if (head == nullptr)
+				throw std::out_of_range("no elements");
 
-			TOID(struct queue_node) head_ptr = head;
-			value = D_RO(head)->value;
+			auto head_ptr = head;
+			value = head->value;
 
-			TX_ADD_DIRECT(&head);
-			head = D_RO(head)->next;
-			TX_FREE(head_ptr);
+			head = head->next;
+			pmem::obj::delete_persistent<queue_node>(head_ptr);
 
-			if (TOID_IS_NULL(head)) {
-				TX_ADD_DIRECT(&tail);
-				tail = TOID_NULL(struct queue_node);
-            }
-		} TX_END;
+			if (head == nullptr)
+				tail = nullptr;
+		});
 
 		return value;
 	}
@@ -111,18 +102,18 @@ struct queue {
 	void
 	show()
 	{
-		TOID(struct queue_node) node = head;
-		while (!TOID_IS_NULL(node)) {
-			std::cout << "show: " << D_RO(node)->value << std::endl;
-			node = D_RO(node)->next;
+		auto node = head;
+		while (node != nullptr) {
+			std::cout << "show: " << node->value << std::endl;
+			node = node->next;
 		}
 
 		std::cout << std::endl;
 	}
 
 private:
-	TOID(struct queue_node) head;
-	TOID(struct queue_node) tail;
+	pmem::obj::persistent_ptr<queue_node> head = nullptr;
+	pmem::obj::persistent_ptr<queue_node> tail = nullptr;
 };
 
 const char *ops_str[MAX_OPS] = {"push", "pop", "show"};
@@ -147,12 +138,8 @@ main(int argc, char *argv[])
 	}
 
 	auto path = argv[1];
-	PMEMobjpool *pool = pmemobj_open(path, POBJ_LAYOUT_NAME(queue));
-	if (pool == NULL)
-		std::cerr << "failed to open the pool\n";
-
-	TOID(struct queue) root = POBJ_ROOT(pool, struct queue);
-	struct queue *q = D_RW(root);
+	auto pool = pmem::obj::pool<queue>::open(path, "queue");
+	auto q = pool.root();
 
 	while (1) {
 		std::cout << "[push value|pop|show]" << std::endl;
@@ -183,7 +170,7 @@ main(int argc, char *argv[])
 			default: {
 				std::cerr << "unknown ops" << std::endl;
 
-				pmemobj_close(pool);
+				pool.close();
 				exit(0);
 			}
 		}

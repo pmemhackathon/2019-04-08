@@ -2,7 +2,7 @@
 # Makefile for simplekv example
 #
 
-PROGS = simplekv_simple simplekv_word_count find_bugs queue queue_pmemobj
+PROGS = simplekv_simple simplekv_word_count find_bugs queue queue_pmemobj queue_pmemobj_cpp
 CXXFLAGS = -g -Wall -Werror -std=c++11\
 	-DLIBPMEMOBJ_CPP_VG_PMEMCHECK_ENABLED=1 `pkg-config --cflags valgrind`
 LIBS = -lpmemobj
@@ -22,6 +22,9 @@ queue: queue.o
 	$(CXX) -o $@ $(CXXFLAGS) $^ $(LIBS)
 
 queue_pmemobj: queue_pmemobj.o
+	$(CXX) -o $@ $(CXXFLAGS) $^ $(LIBS)
+
+queue_pmemobj_cpp: queue_pmemobj_cpp.o
 	$(CXX) -o $@ $(CXXFLAGS) $^ $(LIBS)
 
 clean:
