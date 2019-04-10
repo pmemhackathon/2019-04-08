@@ -82,14 +82,14 @@ public:
 	at(const Key &key)
 	{
 		/* TODO */
-        throw std::runtime_error("Not implemented");
+		throw std::runtime_error("Not implemented");
 	}
 
 	void
 	insert(const Key &key, const Value &val)
 	{
 		/* TODO */
-        throw std::runtime_error("Not implemented");
+		throw std::runtime_error("Not implemented");
 	}
 
 	void begin()

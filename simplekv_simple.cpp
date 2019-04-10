@@ -71,10 +71,10 @@ main(int argc, char *argv[])
 	auto r = pop.root();
 
 	if (r->simplekv != nullptr) {
-        transaction::run(pop, [&]() {
-            delete_persistent<simplekv_type>(r->simplekv);
-        });
-    }
+		transaction::run(pop, [&]() {
+			delete_persistent<simplekv_type>(r->simplekv);
+		});
+	}
 
 	transaction::run(pop, [&]() {
 		r->simplekv = make_persistent<simplekv_type>();

@@ -141,10 +141,10 @@ main(int argc, char *argv[])
 	std::vector<word_count_kv> word_counts;
 
 	std::transform(r->simplekv->begin(), r->simplekv->end(),
-		       std::back_inserter(word_counts), map);
+			   std::back_inserter(word_counts), map);
 
 	auto result = std::accumulate(word_counts.begin(), word_counts.end(),
-				      word_count_kv{}, reduce);
+					  word_count_kv{}, reduce);
 
 	for (const auto &e : result) {
 		std::cout << e.first << " " << e.second << std::endl;
