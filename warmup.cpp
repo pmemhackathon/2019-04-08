@@ -38,9 +38,15 @@
  *	pmempool create obj --layout=simplekv -s 1G word_count
  */
 
-#include "simplekv.hpp"
+#include <iostream>
+#include <libpmemobj++/make_persistent.hpp>
+#include <libpmemobj++/p.hpp>
+#include <libpmemobj++/pext.hpp>
+#include <libpmemobj++/persistent_ptr.hpp>
+#include <libpmemobj++/pool.hpp>
+#include <libpmemobj++/transaction.hpp>
 
-static const std::string LAYOUT = "simplekv";
+static const std::string LAYOUT = "warmup";
 
 using pmem::obj::delete_persistent;
 using pmem::obj::make_persistent;
@@ -49,13 +55,19 @@ using pmem::obj::persistent_ptr;
 using pmem::obj::pool;
 using pmem::obj::transaction;
 
-namespace ptl = pmem::obj::experimental;
-
-using simplekv_type = examples::kv<int, int, 10>;
-
 struct root {
-	persistent_ptr<simplekv_type> simplekv;
+	/* TODO: create a variable */
 };
+
+int inc(pool<root> &pop)
+{
+	auto r = pop.root();
+
+	/* TODO: increment the variable */
+
+	/* TODO: return real variable value */
+	return 0;
+}
 
 int
 main(int argc, char *argv[])
@@ -68,27 +80,8 @@ main(int argc, char *argv[])
 	auto path = argv[1];
 
 	auto pop = pool<root>::open(path, LAYOUT);
-	auto r = pop.root();
 
-	if (r->simplekv != nullptr) {
-		transaction::run(pop, [&]() {
-			delete_persistent<simplekv_type>(r->simplekv);
-		});
-	}
-
-	transaction::run(pop, [&]() {
-		r->simplekv = make_persistent<simplekv_type>();
-	});
-
-	r->simplekv->insert(1, 1);
-	r->simplekv->insert(2, 3);
-	r->simplekv->insert(3, 4);
-	r->simplekv->insert(11, 11);
-
-	assert(r->simplekv->at(1) == 1);
-	assert(r->simplekv->at(2) == 3);
-	assert(r->simplekv->at(3) == 4);
-	assert(r->simplekv->at(11) == 11);
+	std::cout << inc(pop) << std::endl;
 
 	pop.close();
 

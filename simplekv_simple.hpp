@@ -89,11 +89,11 @@ public:
 	{
 		auto index = std::hash<Key>{}(key) % N;
 
-        for (auto &e : table[index])
-        {
-            if (e.first == key)
-                return e.second;
-        }
+		for (auto &e : table[index])
+		{
+			if (e.first == key)
+				return e.second;
+		}
 
 		throw std::out_of_range("no entry in simplekv");
 	}
@@ -101,7 +101,7 @@ public:
 	void
 	insert(const Key &key, const Value &val)
 	{
-        auto index = std::hash<Key>{}(key) % N;
+		auto index = std::hash<Key>{}(key) % N;
 
 		table[index].emplace_back(key, val);
 	}

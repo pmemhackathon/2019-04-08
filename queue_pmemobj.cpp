@@ -44,21 +44,17 @@
 
 #include <libpmemobj.h>
 
-POBJ_LAYOUT_BEGIN(queue);
-POBJ_LAYOUT_TOID(queue, struct queue);
-POBJ_LAYOUT_TOID(queue, struct queue_node);
-POBJ_LAYOUT_END(queue);
-
 enum queue_op {
 	PUSH,
 	POP,
 	SHOW,
+	EXIT,
 	MAX_OPS,
 };
 
 struct queue_node {
 	int value;
-	TOID(struct queue_node) next;
+	PMEMoid next;
 };
 
 struct queue {
@@ -66,19 +62,18 @@ struct queue {
 	push(PMEMobjpool *pop, int value)
 	{
 		TX_BEGIN(pop) {
-			TOID(struct queue_node) node = TX_ALLOC(struct queue_node,
-                                                    sizeof(struct queue_node));
-			D_RW(node)->value = value;
-			D_RW(node)->next = TOID_NULL(struct queue_node);
+			PMEMoid node = pmemobj_tx_alloc(sizeof(struct queue_node), 0);
+			((struct queue_node*) pmemobj_direct(node))->value = value;
+			((struct queue_node*) pmemobj_direct(node))->next = OID_NULL;
 
-			if (TOID_IS_NULL(head)) {
-				TX_ADD_DIRECT(this);
+			if (OID_IS_NULL(head)) {
+				pmemobj_tx_add_range_direct(this, sizeof(*this));
 				head = tail = node;
 			} else {
-				TX_ADD(tail);
-				D_RW(tail)->next = node;
+				pmemobj_tx_add_range(tail, 0, sizeof(struct queue_node));
+				((struct queue_node*) pmemobj_direct(tail))->next = node;
 
-				TX_ADD_DIRECT(&tail);
+				pmemobj_tx_add_range_direct(&tail, sizeof(tail));
 				tail = node;
 			}
 		} TX_END;
@@ -89,20 +84,20 @@ struct queue {
 	{
 		int value;
 		TX_BEGIN(pop) {
-			if (TOID_IS_NULL(head))
+			if (OID_IS_NULL(head))
 				pmemobj_tx_abort(-1);
 
-			TOID(struct queue_node) head_ptr = head;
-			value = D_RO(head)->value;
+			PMEMoid head_ptr = head;
+			value = ((struct queue_node*) pmemobj_direct(head))->value;
 
-			TX_ADD_DIRECT(&head);
-			head = D_RO(head)->next;
-			TX_FREE(head_ptr);
+			pmemobj_tx_add_range_direct(&head, sizeof(head));
+			head = ((struct queue_node*) pmemobj_direct(head))->next;
+			pmemobj_tx_free(head_ptr);
 
-			if (TOID_IS_NULL(head)) {
-				TX_ADD_DIRECT(&tail);
-				tail = TOID_NULL(struct queue_node);
-            }
+			if (OID_IS_NULL(head)) {
+				pmemobj_tx_add_range_direct(&tail, sizeof(tail));
+				tail = OID_NULL;
+			}
 		} TX_END;
 
 		return value;
@@ -111,21 +106,23 @@ struct queue {
 	void
 	show()
 	{
-		TOID(struct queue_node) node = head;
-		while (!TOID_IS_NULL(node)) {
-			std::cout << "show: " << D_RO(node)->value << std::endl;
-			node = D_RO(node)->next;
+		PMEMoid node = head;
+		while (!OID_IS_NULL(node)) {
+			struct queue_node *node_p = (struct queue_node*)pmemobj_direct(node);
+
+			std::cout << "show: " << node_p->value << std::endl;
+			node = node_p->next;
 		}
 
 		std::cout << std::endl;
 	}
 
 private:
-	TOID(struct queue_node) head;
-	TOID(struct queue_node) tail;
+	PMEMoid head;
+	PMEMoid tail;
 };
 
-const char *ops_str[MAX_OPS] = {"push", "pop", "show"};
+const char *ops_str[MAX_OPS] = {"push", "pop", "show", "exit"};
 
 queue_op
 parse_queue_ops(const std::string &ops)
@@ -147,15 +144,15 @@ main(int argc, char *argv[])
 	}
 
 	auto path = argv[1];
-	PMEMobjpool *pool = pmemobj_open(path, POBJ_LAYOUT_NAME(queue));
+	PMEMobjpool *pool = pmemobj_open(path, "queue");
 	if (pool == NULL)
 		std::cerr << "failed to open the pool\n";
 
-	TOID(struct queue) root = POBJ_ROOT(pool, struct queue);
-	struct queue *q = D_RW(root);
+	PMEMoid root = pmemobj_root(pool, sizeof(struct queue));
+	struct queue *q = (struct queue*) pmemobj_direct(root);
 
 	while (1) {
-		std::cout << "[push value|pop|show]" << std::endl;
+		std::cout << "[push value|pop|show|exit]" << std::endl;
 
 		std::string command;
 		std::cin >> command;
@@ -180,9 +177,12 @@ main(int argc, char *argv[])
 				q->show();
 				break;
 			}
+			case EXIT: {
+				pmemobj_close(pool);
+				exit(0);
+			}
 			default: {
 				std::cerr << "unknown ops" << std::endl;
-
 				pmemobj_close(pool);
 				exit(0);
 			}

@@ -52,6 +52,7 @@ enum queue_op {
 	PUSH,
 	POP,
 	SHOW,
+	EXIT,
 	MAX_OPS,
 };
 
@@ -116,7 +117,7 @@ private:
 	pmem::obj::persistent_ptr<queue_node> tail = nullptr;
 };
 
-const char *ops_str[MAX_OPS] = {"push", "pop", "show"};
+const char *ops_str[MAX_OPS] = {"push", "pop", "show", "exit"};
 
 queue_op
 parse_queue_ops(const std::string &ops)
@@ -142,7 +143,7 @@ main(int argc, char *argv[])
 	auto q = pool.root();
 
 	while (1) {
-		std::cout << "[push value|pop|show]" << std::endl;
+		std::cout << "[push value|pop|show|exit]" << std::endl;
 
 		std::string command;
 		std::cin >> command;
@@ -166,6 +167,10 @@ main(int argc, char *argv[])
 			case SHOW: {
 				q->show();
 				break;
+			}
+			case EXIT: {
+				pool.close();
+				exit(0);
 			}
 			default: {
 				std::cerr << "unknown ops" << std::endl;
